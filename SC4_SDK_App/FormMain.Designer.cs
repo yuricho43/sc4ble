@@ -170,7 +170,7 @@ namespace SC4_SDK_App
             // comboServiceList
             // 
             this.comboServiceList.FormattingEnabled = true;
-            this.comboServiceList.Location = new System.Drawing.Point(266, 84);
+            this.comboServiceList.Location = new System.Drawing.Point(266, 70);
             this.comboServiceList.Name = "comboServiceList";
             this.comboServiceList.Size = new System.Drawing.Size(234, 20);
             this.comboServiceList.TabIndex = 11;
@@ -178,7 +178,7 @@ namespace SC4_SDK_App
             // label2
             // 
             this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(182, 90);
+            this.label2.Location = new System.Drawing.Point(182, 76);
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(82, 12);
             this.label2.TabIndex = 10;
@@ -188,15 +188,15 @@ namespace SC4_SDK_App
             // 
             this.listCharList.FormattingEnabled = true;
             this.listCharList.ItemHeight = 12;
-            this.listCharList.Location = new System.Drawing.Point(267, 130);
+            this.listCharList.Location = new System.Drawing.Point(184, 124);
             this.listCharList.Name = "listCharList";
-            this.listCharList.Size = new System.Drawing.Size(233, 88);
+            this.listCharList.Size = new System.Drawing.Size(316, 88);
             this.listCharList.TabIndex = 12;
             // 
             // label3
             // 
             this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(182, 128);
+            this.label3.Location = new System.Drawing.Point(182, 109);
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(68, 12);
             this.label3.TabIndex = 13;
@@ -204,7 +204,7 @@ namespace SC4_SDK_App
             // 
             // btnGenerate
             // 
-            this.btnGenerate.Location = new System.Drawing.Point(12, 331);
+            this.btnGenerate.Location = new System.Drawing.Point(12, 309);
             this.btnGenerate.Name = "btnGenerate";
             this.btnGenerate.Size = new System.Drawing.Size(156, 23);
             this.btnGenerate.TabIndex = 14;
@@ -300,7 +300,7 @@ namespace SC4_SDK_App
             // chkSetCarryTotal
             // 
             this.chkSetCarryTotal.AutoSize = true;
-            this.chkSetCarryTotal.Location = new System.Drawing.Point(12, 527);
+            this.chkSetCarryTotal.Location = new System.Drawing.Point(12, 343);
             this.chkSetCarryTotal.Name = "chkSetCarryTotal";
             this.chkSetCarryTotal.Size = new System.Drawing.Size(89, 16);
             this.chkSetCarryTotal.TabIndex = 27;
@@ -343,7 +343,7 @@ namespace SC4_SDK_App
             this.cmbSetCarryTotal.Items.AddRange(new object[] {
             "Carry",
             "Total"});
-            this.cmbSetCarryTotal.Location = new System.Drawing.Point(142, 524);
+            this.cmbSetCarryTotal.Location = new System.Drawing.Point(142, 340);
             this.cmbSetCarryTotal.Name = "cmbSetCarryTotal";
             this.cmbSetCarryTotal.Size = new System.Drawing.Size(121, 20);
             this.cmbSetCarryTotal.TabIndex = 28;

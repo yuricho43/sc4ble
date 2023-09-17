@@ -16,6 +16,16 @@ namespace SC4_SDK_App
         SC4_BleLib gSC4Lib = new SC4_BleLib();
         byte[] gCommand = new byte[20];
 
+        public string ConvertHexArrayToString(byte[] data, int len)
+        {
+            byte[] byteArray = new byte[len];
+            Buffer.BlockCopy(data, 0, byteArray, 0, len);
+
+            string strResult = System.BitConverter.ToString(byteArray);
+            strResult = strResult.Replace("-", " ");
+            return strResult;
+        }
+
         //--- Make Setting Value (App --> Dev)
         private void btnGenerate_Click(object sender, EventArgs e)
         {
@@ -24,9 +34,29 @@ namespace SC4_SDK_App
             // 11-15: Distance to Ball, Target Distance
             // 16~20: Club, LoftAngle, 0x45, CheckSum
 
+            // Flag : bit7  bit6  bit5  bit4     bit3  bit2  bit1  bit0
+            //        Carry Loft  club  target   dist  tee   Unit  Mode
+            Array.Clear(gCommand, 0, gCommand.Length);
+            if (chkSetMode.Checked)
+                gCommand[2] |= 0x01;
+            if (chkSetUnit.Checked)
+                gCommand[2] |= 0x02;
+            if (chkSetTeeHight.Checked)
+                gCommand[2] |= 0x04;
+            if (chkSetDistanceToBall.Checked)
+                gCommand[2] |= 0x08;
+            if (chkSetTargetDistance.Checked)
+                gCommand[2] |= 0x10;
+            if (chkSetClub.Checked)
+                gCommand[2] |= 0x20;
+            if (chkSetLoftAngle.Checked)
+                gCommand[2] |= 0x40;
+            if (chkSetCarryTotal.Checked)
+                gCommand[2] |= 0x80;
+
+            gCommand[2] = 1;                                            // Flag
             gCommand[0] = 0x53;                                         // Start
             gCommand[1] = 0x6F;                                         // CMD
-            gCommand[2] = 0;                                            // Flag
             gCommand[3] = (byte)cmbSetCarryTotal.SelectedIndex;         // CarryTotal
             gCommand[4] = (byte)cmbSetMode.SelectedIndex;               // Mode
             gCommand[5] = (byte)cmbSetUnit.SelectedIndex;               // Unit
@@ -39,7 +69,10 @@ namespace SC4_SDK_App
             gCommand[19] = GetCheckSum(gCommand, 19);                   // CheckSum
 
             //--- array to string
+            string strCmd = ConvertHexArrayToString(gCommand, 20);
+
             //--- write to textCommand TextBox
+            textCommand.Text = strCmd;
         }
 
         private byte GetCheckSum(byte[] data, int length)
@@ -63,9 +96,6 @@ namespace SC4_SDK_App
         public FormSC4()
         {
             InitializeComponent();
-
-            //--- test routine 
-            int iVal = gSC4Lib.SC4_Add(4, 4);
         }
 
         private void btnScan_Click(object sender, EventArgs e)
@@ -87,7 +117,7 @@ namespace SC4_SDK_App
             //--- connect to devices scanned
             string strDevice = comboDeviceList.Text.ToString();
             strResult = gSC4Lib.SC4_Connect_Devices(strDevice);
-            AddToDebugList("Connect Completed. " + " Result=" + strResult);
+            AddToDebugList("Try to Connect. " + " Result=" + strResult);
         }
 
         private void btnGetSvc_Click(object sender, EventArgs e)
@@ -118,7 +148,9 @@ namespace SC4_SDK_App
         private void btnWrite_Click(object sender, EventArgs e)
         {
             string strCommand = textCommand.Text.ToString();
-            gSC4Lib.SC4_WriteCommand(strCommand);
+            var parts = listCharList.Text.ToString().Split(' ');
+            string strChars = parts[0];
+            gSC4Lib.SC4_WriteCommand(strChars, strCommand);
         }
     }
 }

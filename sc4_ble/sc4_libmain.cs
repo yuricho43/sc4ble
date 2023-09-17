@@ -15,6 +15,7 @@ namespace sc4_ble
         public static string gDevName = null;
         public static string gSvcName = null;
         public static string gCharName = null;
+        public int gStatus = 0;     //0: nothing, 1: waiting, 2: completed
 
         private async void RunTask(TaskName taskName, string arg1, string arg2, Action<ERROR_CODE> callback)
         {
@@ -51,11 +52,7 @@ namespace sc4_ble
                     }
             }
             callback(result);
-        }
-
-        public int SC4_Add(int a, int b)
-        {
-            return a + b;
+            gStatus = 2;
         }
 
         public List<string> SC4_Scan_Devices()
@@ -66,16 +63,26 @@ namespace sc4_ble
 
         public string SC4_Connect_Devices(string strDevice)
         {
-            ERROR_CODE result = gBle.ConnnectionStatus(strDevice);
-
             gDevName = strDevice;
-            if (result == ERROR_CODE.BLE_CONNECTED)
-                return "BLE_CONNECTED";
 
+           /*
+            * ERROR_CODE result;
+            Task<ERROR_CODE> t1 =gBle.OpenDevice(strDevice);
+            result = t1.Result;
+
+            if (result == ERROR_CODE.BLE_CONNECTED)
+                return ERROR_CODE.BLE_CONNECTED.ToString();
+           */
             RunTask(TaskName.OPEN_DEVICE, strDevice, null, (arg) => { gResult = arg.ToString(); });
+            gStatus = 0;
 
             // check if connected          
-            return gResult;
+            return "Connecting...";
+        }
+
+        public int SC4_GetStatus()
+        {
+            return gStatus;
         }
 
         public List<string> SC4_GetServiceList()
@@ -99,11 +106,11 @@ namespace sc4_ble
             RunTask(TaskName.SET_SERVICE, devName, svcName, (result) => { });
         }
 
-        public void SC4_WriteCommand(string strCommand)
+        public void SC4_WriteCommand(string strChars, string strCommand)
         {
             // parameters 
             // devName, characterName + command
-            string strFinalCmd = "WriteCharacteristics " + strCommand;
+            string strFinalCmd = strChars + " " + strCommand;
             RunTask(TaskName.WRITE_CHARACTERISTIC, gDevName, strFinalCmd, (arg) => { });
         }
     }
