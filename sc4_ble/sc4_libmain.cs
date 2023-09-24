@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 using Ble.Service;
 
 namespace sc4_ble
@@ -16,43 +17,63 @@ namespace sc4_ble
         public static string gSvcName = null;
         public static string gCharName = null;
         public int gStatus = 0;     //0: nothing, 1: waiting, 2: completed
+        public ListBox gListResponse, gListDebug, gListNotification;
 
-        private async void RunTask(TaskName taskName, string arg1, string arg2, Action<ERROR_CODE> callback)
+        delegate void BleCallback(ERROR_CODE er, string resultString);  // 대리자 선언
+        delegate void NotifCallback(string resultString);               // 대리자 선언
+
+        private async void RunTask(TaskName taskName, string arg1, string arg2, BleCallback callback)
         {
             // 비동기로 Worker Thread에서 도는 task1
             // Task.Run(): .NET Framework 4.5+
             ERROR_CODE result = ERROR_CODE.NONE;
+            string strResult = "-";
 
             switch (taskName)
             {
                 case TaskName.OPEN_DEVICE:
                     result = await gBle.OpenDevice(arg1);
+                    strResult = "Open Device";
                     break;
 
                 case TaskName.SET_SERVICE:
                     //task1 = Task.Run(() => bleservice.SetService(deviceName));
                     //result = await task1;
                     result = await gBle.SetService(arg2);
+                    strResult = "Set Service";
                     break;
 
                 case TaskName.READ_CHARACTERISTIC:
                     {
                         var resultString = await gBle.ReadCharacteristic(arg1, arg2);
+                        strResult = resultString;
                         break;
                     }
                 case TaskName.SUBSCRIBE_CHARACTERISTIC:
                     {
-                        var resultString = await gBle.SubscribeCharacteristic(arg1, arg2, (arg) => { });
+                        // NotifCallback nc = new NotifCallback(NotifCallbackFunction);
+                        System.Action<string> nc1 = new System.Action<string>(NotifCallbackFunction);
+                        var resultString = await gBle.SubscribeCharacteristic(arg1, arg2, nc1);
+                        strResult = resultString;
                         break;
                     }
                 case TaskName.WRITE_CHARACTERISTIC:
                     {
                         var resultString = await gBle.WriteCharacteristic(arg1, arg2);
+                        strResult = resultString;
                         break;
                     }
             }
-            callback(result);
+            callback(result, strResult);
             gStatus = 2;
+        }
+
+
+        public void Set_ListBox(ListBox listResponse, ListBox listNotification, ListBox listDebug)
+        {
+            gListResponse = listResponse;
+            gListNotification = listNotification;
+            gListDebug = listDebug;
         }
 
         public List<string> SC4_Scan_Devices()
@@ -65,15 +86,16 @@ namespace sc4_ble
         {
             gDevName = strDevice;
 
-           /*
-            * ERROR_CODE result;
-            Task<ERROR_CODE> t1 =gBle.OpenDevice(strDevice);
-            result = t1.Result;
+            /*
+             * ERROR_CODE result;
+             Task<ERROR_CODE> t1 =gBle.OpenDevice(strDevice);
+             result = t1.Result;
 
-            if (result == ERROR_CODE.BLE_CONNECTED)
-                return ERROR_CODE.BLE_CONNECTED.ToString();
-           */
-            RunTask(TaskName.OPEN_DEVICE, strDevice, null, (arg) => { gResult = arg.ToString(); });
+             if (result == ERROR_CODE.BLE_CONNECTED)
+                 return ERROR_CODE.BLE_CONNECTED.ToString();
+            */
+            BleCallback bc = new BleCallback(CallbackFunction);
+            RunTask(TaskName.OPEN_DEVICE, strDevice, null, bc);
             gStatus = 0;
 
             // check if connected          
@@ -103,15 +125,40 @@ namespace sc4_ble
         public void SC4_SetService(string devName, string svcName)
         {
             gSvcName = svcName;
-            RunTask(TaskName.SET_SERVICE, devName, svcName, (result) => { });
+            BleCallback bc = new BleCallback(CallbackFunction);
+            RunTask(TaskName.SET_SERVICE, devName, svcName, bc);
+        }
+
+        public void SC4_Subscribe_Characteristics(string devName, string strChars)
+        {
+            BleCallback bc = new BleCallback(CallbackFunction);
+            RunTask(TaskName.SUBSCRIBE_CHARACTERISTIC, devName, strChars, bc);
         }
 
         public void SC4_WriteCommand(string strChars, string strCommand)
         {
             // parameters 
             // devName, characterName + command
-            string strFinalCmd = strChars + " " + strCommand;
-            RunTask(TaskName.WRITE_CHARACTERISTIC, gDevName, strFinalCmd, (arg) => { });
+            BleCallback bc = new BleCallback(CallbackFunction);
+            string strFinalCmd = strChars + " " + strCommand;            
+            RunTask(TaskName.WRITE_CHARACTERISTIC, gDevName, strFinalCmd, bc);
+        }
+
+        public void CallbackFunction(ERROR_CODE er, string result)
+        {
+            string strCallback = er.ToString() + ": " + result;
+            Console.WriteLine(strCallback);
+
+            gListDebug.Items.Add(strCallback);
+        }
+        public void NotifCallbackFunction(string result)
+        {
+            string strCallback = "NOTIF:" + result;
+            gListDebug.Invoke((MethodInvoker)delegate ()
+            {
+                gListDebug.Items.Add(strCallback);
+            });
+
         }
     }
 }

@@ -54,7 +54,6 @@ namespace SC4_SDK_App
             if (chkSetCarryTotal.Checked)
                 gCommand[2] |= 0x80;
 
-            gCommand[2] = 1;                                            // Flag
             gCommand[0] = 0x53;                                         // Start
             gCommand[1] = 0x6F;                                         // CMD
             gCommand[3] = (byte)cmbSetCarryTotal.SelectedIndex;         // CarryTotal
@@ -96,6 +95,7 @@ namespace SC4_SDK_App
         public FormSC4()
         {
             InitializeComponent();
+            gSC4Lib.Set_ListBox(listReponse, listNotfication, listDebug);
         }
 
         private void btnScan_Click(object sender, EventArgs e)
@@ -151,6 +151,31 @@ namespace SC4_SDK_App
             var parts = listCharList.Text.ToString().Split(' ');
             string strChars = parts[0];
             gSC4Lib.SC4_WriteCommand(strChars, strCommand);
+        }
+
+        private void btnDevInfo_Click(object sender, EventArgs e)
+        {
+            // Make Device Info String
+            // 0x53, 0x64, 16x 0x00, 0x45, checksum
+            Array.Clear(gCommand, 0, gCommand.Length);
+            gCommand[0] = 0x53;                                         // Start
+            gCommand[1] = 0x64;                                         // CMD
+            gCommand[18] = 0x45;                                        // End
+            gCommand[19] = GetCheckSum(gCommand, 19);                   // CheckSum
+
+            //--- array to string
+            string strCmd = ConvertHexArrayToString(gCommand, 20);
+            //--- write to textCommand TextBox
+            textCommand.Text = strCmd;
+        }
+
+        private void btnSubscribe_Click(object sender, EventArgs e)
+        {
+            string strDevice = comboDeviceList.Text.ToString();
+            string strSvc = comboServiceList.Text.ToString();
+            var parts = listCharList.Text.ToString().Split(' ');
+            string strChars = parts[0];
+            gSC4Lib.SC4_Subscribe_Characteristics(strDevice, strChars);
         }
     }
 }

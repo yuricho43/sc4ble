@@ -70,6 +70,7 @@ namespace SC4_SDK_App
             this.label9 = new System.Windows.Forms.Label();
             this.textSetLoftAngle = new System.Windows.Forms.TextBox();
             this.textCommand = new System.Windows.Forms.TextBox();
+            this.btnDevInfo = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // btnScan
@@ -139,6 +140,7 @@ namespace SC4_SDK_App
             this.btnSubscribe.TabIndex = 5;
             this.btnSubscribe.Text = "6. Subscribe";
             this.btnSubscribe.UseVisualStyleBackColor = true;
+            this.btnSubscribe.Click += new System.EventHandler(this.btnSubscribe_Click);
             // 
             // btnGetChar
             // 
@@ -206,7 +208,7 @@ namespace SC4_SDK_App
             // 
             this.btnGenerate.Location = new System.Drawing.Point(12, 309);
             this.btnGenerate.Name = "btnGenerate";
-            this.btnGenerate.Size = new System.Drawing.Size(156, 23);
+            this.btnGenerate.Size = new System.Drawing.Size(144, 23);
             this.btnGenerate.TabIndex = 14;
             this.btnGenerate.Text = "Generate Command";
             this.btnGenerate.UseVisualStyleBackColor = true;
@@ -218,7 +220,7 @@ namespace SC4_SDK_App
             this.listNotfication.ItemHeight = 12;
             this.listNotfication.Location = new System.Drawing.Point(519, 245);
             this.listNotfication.Name = "listNotfication";
-            this.listNotfication.Size = new System.Drawing.Size(332, 136);
+            this.listNotfication.Size = new System.Drawing.Size(569, 136);
             this.listNotfication.TabIndex = 15;
             // 
             // label4
@@ -245,7 +247,7 @@ namespace SC4_SDK_App
             this.listReponse.ItemHeight = 12;
             this.listReponse.Location = new System.Drawing.Point(519, 391);
             this.listReponse.Name = "listReponse";
-            this.listReponse.Size = new System.Drawing.Size(332, 148);
+            this.listReponse.Size = new System.Drawing.Size(569, 148);
             this.listReponse.TabIndex = 17;
             // 
             // listDebug
@@ -254,7 +256,7 @@ namespace SC4_SDK_App
             this.listDebug.ItemHeight = 12;
             this.listDebug.Location = new System.Drawing.Point(520, 22);
             this.listDebug.Name = "listDebug";
-            this.listDebug.Size = new System.Drawing.Size(332, 184);
+            this.listDebug.Size = new System.Drawing.Size(568, 184);
             this.listDebug.TabIndex = 19;
             // 
             // chkSetMode
@@ -482,17 +484,28 @@ namespace SC4_SDK_App
             // 
             // textCommand
             // 
-            this.textCommand.Location = new System.Drawing.Point(12, 550);
+            this.textCommand.Location = new System.Drawing.Point(12, 537);
             this.textCommand.Name = "textCommand";
             this.textCommand.Size = new System.Drawing.Size(403, 21);
             this.textCommand.TabIndex = 40;
             this.textCommand.Text = "150";
             // 
+            // btnDevInfo
+            // 
+            this.btnDevInfo.Location = new System.Drawing.Point(12, 564);
+            this.btnDevInfo.Name = "btnDevInfo";
+            this.btnDevInfo.Size = new System.Drawing.Size(127, 23);
+            this.btnDevInfo.TabIndex = 41;
+            this.btnDevInfo.Text = "Make DevInfo Req.";
+            this.btnDevInfo.UseVisualStyleBackColor = true;
+            this.btnDevInfo.Click += new System.EventHandler(this.btnDevInfo_Click);
+            // 
             // FormSC4
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(873, 591);
+            this.ClientSize = new System.Drawing.Size(1278, 591);
+            this.Controls.Add(this.btnDevInfo);
             this.Controls.Add(this.textCommand);
             this.Controls.Add(this.label9);
             this.Controls.Add(this.textSetLoftAngle);
@@ -584,6 +597,7 @@ namespace SC4_SDK_App
         private System.Windows.Forms.Label label9;
         private System.Windows.Forms.TextBox textSetLoftAngle;
         private System.Windows.Forms.TextBox textCommand;
+        private System.Windows.Forms.Button btnDevInfo;
     }
 }
 
