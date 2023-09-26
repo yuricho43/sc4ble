@@ -96,6 +96,7 @@ namespace SC4_SDK_App
         {
             InitializeComponent();
             gSC4Lib.Set_ListBox(listReponse, listNotfication, listDebug);
+            gSC4Lib.Set_Callback(Process_Notification_Callback);
         }
 
         private void btnScan_Click(object sender, EventArgs e)
@@ -176,6 +177,18 @@ namespace SC4_SDK_App
             var parts = listCharList.Text.ToString().Split(' ');
             string strChars = parts[0];
             gSC4Lib.SC4_Subscribe_Characteristics(strDevice, strChars);
+        }
+
+        //--- callback function
+        public int Process_Notification_Callback(string strResult)
+        {
+
+            listNotfication.Invoke((MethodInvoker)delegate ()
+            {
+                listNotfication.Items.Add(strResult);
+            });
+
+            return 0;
         }
     }
 }

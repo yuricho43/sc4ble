@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,6 +22,7 @@ namespace sc4_ble
 
         delegate void BleCallback(ERROR_CODE er, string resultString);  // 대리자 선언
         delegate void NotifCallback(string resultString);               // 대리자 선언
+        Func<string, int> gCallback = null;
 
         private async void RunTask(TaskName taskName, string arg1, string arg2, BleCallback callback)
         {
@@ -68,6 +70,11 @@ namespace sc4_ble
             gStatus = 2;
         }
 
+        public void Set_Callback(Func<string, int> func)
+        {
+            gCallback = func;
+            return;
+        }
 
         public void Set_ListBox(ListBox listResponse, ListBox listNotification, ListBox listDebug)
         {
@@ -79,6 +86,7 @@ namespace sc4_ble
         public List<string> SC4_Scan_Devices()
         {
             gBle.StartScan();
+            gCallback("callback from sc4 ble lib on scan devices");
             return gBle.GetDeviceList();
         }
 
@@ -159,6 +167,7 @@ namespace sc4_ble
                 gListDebug.Items.Add(strCallback);
             });
 
+            gCallback(strCallback);
         }
     }
 }
