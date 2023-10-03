@@ -12,6 +12,9 @@ using System.Text.RegularExpressions;
 using Windows.Devices.Bluetooth.Advertisement;
 using Windows.Storage.Streams;
 
+// for debugging: CryptographicBuffer.CopyToByteArray
+using Windows.Security.Cryptography;
+
 namespace Ble.Service
 {
     public class Bleservice
@@ -83,7 +86,8 @@ namespace Ble.Service
         public ERROR_CODE StartScan(string devName, Action<string> callback)
         {
             AutoResetEvent autoEvent = new AutoResetEvent(false);
-            var watcher = DeviceInformation.CreateWatcher(BluetoothLEDevice.GetDeviceSelectorFromConnectionStatus(BluetoothConnectionStatus.Connected), _requestedBLEProperties, DeviceInformationKind.AssociationEndpointContainer);
+            //var watcher = DeviceInformation.CreateWatcher(BluetoothLEDevice.GetDeviceSelectorFromConnectionStatus(BluetoothConnectionStatus.Connected), _requestedBLEProperties, DeviceInformationKind.AssociationEndpointContainer);
+            var watcher = DeviceInformation.CreateWatcher(_aqsAllBLEDevices, _requestedBLEProperties, DeviceInformationKind.AssociationEndpoint);
             watcher.Added += (DeviceWatcher arg1, DeviceInformation devInfo) =>
             {
                 if (devInfo.Name.Equals(devName))
@@ -105,7 +109,7 @@ namespace Ble.Service
             watcher.Stopped += (DeviceWatcher arg1, object arg) => { callback("Scan Stopped"); };
             watcher.Start();
             //KnownDevices.Clear();
-            autoEvent.WaitOne(5000);
+            autoEvent.WaitOne(3000);
             if (_deviceList.Count == 0)
                 return ERROR_CODE.NO_SELECTED_SERVICE;
             return ERROR_CODE.BLE_FOUND_DEVICE;
@@ -334,7 +338,7 @@ namespace Ble.Service
                     charName = parts[0];
                 }
 
-                // Read characteristic
+                // Subscribtion characteristic
                 if (chars.Count == 0)
                 {
                     Console.WriteLine("No Characteristics");
@@ -452,12 +456,14 @@ namespace Ble.Service
         /// <param name="args"></param>
         public void Characteristic_ValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args)
         {
+            byte[] data;
+            CryptographicBuffer.CopyToByteArray(args.CharacteristicValue, out data);
+            //Console.Write($"debugging data : {data.Length}, {data[0]}, {data[1]}, {data[2]} \r\n");
             var newValue = Utilities.FormatValueMultipleFormattes(args.CharacteristicValue, _receivedDataFormat);
 
-            Console.Write($"Value changed for {sender.Uuid} ({args.CharacteristicValue.Length} bytes):\n{newValue}\nBLE: ");
+           // Console.Write($"Value changed for {sender.Uuid} ({args.CharacteristicValue.Length} bytes):\n{newValue}\nBLE: ");
             //_subscribers_callback(newValue);
             if (_subscribers_callback != null )
-                Console.Write($"Value {newValue}");
                 _subscribers_callback.Invoke(newValue);
             if (_notifyCompleteEvent != null)
             {
@@ -519,7 +525,7 @@ namespace Ble.Service
                 }
 
                 // Now process service/characteristic names
-                var charNames = param.Split('/');
+                var charNames = parts[0].Split('/');
                 // Do we have parameter is in "service/characteristic" format?
                 if (charNames.Length == 2)
                 {
@@ -581,7 +587,7 @@ namespace Ble.Service
 
                         if (result.Status == GattCommunicationStatus.Success)
                         {
-                            Console.WriteLine($"Write Succeed: {result.Status} {Utilities.FormatProtocolError(result.ProtocolError)}");
+                            //Console.WriteLine($"Write Succeed: {result.Status} {Utilities.FormatProtocolError(result.ProtocolError)}");
                             task_result = GetErrorString(ERROR_CODE.NONE);
                         }
                         else
@@ -593,7 +599,7 @@ namespace Ble.Service
                     else
                     {
                         Console.WriteLine($"Invalid characteristic {charName}");
-                        task_result = GetErrorString(ERROR_CODE.READ_INVALID_CHARACTERISTIC);
+                        task_result = GetErrorString(ERROR_CODE.WRITE_INVALID_CHARACTERISTIC);
                     }
 
                 }
@@ -601,9 +607,104 @@ namespace Ble.Service
             catch (Exception ex)
             {
                 Console.WriteLine($"READ_EXCEPTION_1. Can't read characteristics: {ex.Message}");
-                task_result = GetErrorString(ERROR_CODE.READ_EXCEPTION_1);
+                task_result = GetErrorString(ERROR_CODE.WRITE_EXCEPTION_1);
             }
             return task_result;
+        }
+
+        public struct st_write_char
+        {
+            public string dev_name;
+            public string char_name;
+            public byte[] buffer;
+            public BluetoothLEAttributeDisplay attr;
+        }
+        st_write_char write_char;
+        public ERROR_CODE write_set_char(string dev_name, string dev_char)
+        {
+            ERROR_CODE result = ERROR_CODE.NONE;
+            write_char.dev_name = dev_name;
+            
+            write_char.char_name = dev_char;
+
+            //var write_char.attr = _characteristics.FirstOrDefault(c => c.Name.Equals(dev_char));
+            //if (write_char.attr == null) {
+            //    result = ERROR_CODE.WRITE_INVALID_CHARACTERISTIC;
+            //}
+            //chars = new List<BluetoothLEAttributeDisplay>(_characteristics);
+
+            //string useName = Utilities.GetIdByNameOrNumber(_characteristics, write_char.char_name);
+            List<BluetoothLEAttributeDisplay> chars = new List<BluetoothLEAttributeDisplay>();
+            chars = new List<BluetoothLEAttributeDisplay>(_characteristics);
+            string useName = Utilities.GetIdByNameOrNumber(chars, dev_char);
+            write_char.attr = chars.FirstOrDefault(c => c.Name.Equals(useName));
+
+            return result;
+        }
+        public ERROR_CODE write_set_data(ref byte[] data) {
+            ERROR_CODE result = ERROR_CODE.NONE;
+            write_char.buffer = data;
+            return result;
+        }
+
+        public async Task<ERROR_CODE> write_run()
+        {
+            ERROR_CODE result = ERROR_CODE.NONE;
+            try
+            {
+                if (ConnnectionStatus(write_char.dev_name) != ERROR_CODE.BLE_CONNECTED)
+                {
+                    result = ERROR_CODE.BLE_NO_CONNECTED;
+                    Console.WriteLine("No BLE device connected.");
+                    return result;
+                }
+                if (write_char.buffer == null)
+                {
+                    result = ERROR_CODE.WRITE_NOTHING_TO_WRITE;
+                    Console.WriteLine("Incorrect data format.");
+                    return result;
+                }
+
+                if (_selectedService == null)
+                {
+                    Console.WriteLine("No service is selected.");
+                    result = ERROR_CODE.NO_SELECTED_SERVICE;
+
+                }
+                
+                var writer = new DataWriter();
+                writer.ByteOrder = ByteOrder.LittleEndian;
+                writer.WriteBytes(write_char.buffer);
+                var buffer = writer.DetachBuffer();
+
+                if (write_char.attr != null )
+                {
+                    // Write data to characteristic
+                    GattWriteResult result_attr = await write_char.attr.characteristic.WriteValueWithResultAsync(buffer);
+                    if (result_attr.Status == GattCommunicationStatus.Success)
+                    {
+                        //Console.WriteLine($"Write Succeed: {result.Status} {Utilities.FormatProtocolError(result.ProtocolError)}");
+                        result = ERROR_CODE.NONE;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Write failed: {result_attr.Status}");
+                        result = ERROR_CODE.WRITE_FAIL;
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"Invalid characteristic");
+                    result = ERROR_CODE.WRITE_INVALID_CHARACTERISTIC;
+                }
+
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"READ_EXCEPTION_1. Can't read characteristics: {ex.Message}");
+                result = ERROR_CODE.WRITE_EXCEPTION_1;
+            }
+            return result;
         }
         /// <summary>
         /// Set active service for current device
