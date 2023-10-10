@@ -67,6 +67,8 @@ namespace SC4_SDK_App
             this.textDat = new System.Windows.Forms.TextBox();
             this.textBin = new System.Windows.Forms.TextBox();
             this.openFileDialog1 = new System.Windows.Forms.OpenFileDialog();
+            this.progressBar1 = new System.Windows.Forms.ProgressBar();
+            this.timerDFU = new System.Windows.Forms.Timer(this.components);
             this.SuspendLayout();
             // 
             // btnScan
@@ -444,11 +446,24 @@ namespace SC4_SDK_App
             // 
             this.openFileDialog1.FileName = "openFileDialog1";
             // 
+            // progressBar1
+            // 
+            this.progressBar1.Location = new System.Drawing.Point(435, 35);
+            this.progressBar1.Name = "progressBar1";
+            this.progressBar1.Size = new System.Drawing.Size(153, 13);
+            this.progressBar1.TabIndex = 48;
+            // 
+            // timerDFU
+            // 
+            this.timerDFU.Interval = 1000;
+            this.timerDFU.Tick += new System.EventHandler(this.timerDFU_Tick);
+            // 
             // FormSC4
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(732, 451);
+            this.Controls.Add(this.progressBar1);
             this.Controls.Add(this.textBin);
             this.Controls.Add(this.textDat);
             this.Controls.Add(this.btnBin);
@@ -530,6 +545,8 @@ namespace SC4_SDK_App
         private System.Windows.Forms.TextBox textDat;
         private System.Windows.Forms.TextBox textBin;
         private System.Windows.Forms.OpenFileDialog openFileDialog1;
+        private System.Windows.Forms.ProgressBar progressBar1;
+        private System.Windows.Forms.Timer timerDFU;
     }
 }
 

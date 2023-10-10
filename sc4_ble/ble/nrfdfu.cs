@@ -110,7 +110,8 @@ namespace nrf.DFU
 		public byte[] byte_array;
 	}
 
-	public class nrfDFU {
+	public class nrfDFU
+	{
 
 		Bleservice ble;
 		subscribtion_result sub_result;
@@ -120,16 +121,17 @@ namespace nrf.DFU
 		ulong dfu_current_crc = 0;
 		Crc32 dfu_crc32;
 		string dfu_file_name;
-		BinaryReader dfu_br;
-		byte[] dfu_buffer;
+		BinaryReader dfu_br = null;
+		int dfu_file_size = 0;
+ 		byte[] dfu_buffer;
 
 		public nrfDFU()
 		{
 			Console.WriteLine("instance create");
 		}
-	
+
 		public async Task<NRF_ERROR_CODE> Open(string devName)
-        {
+		{
 			NRF_ERROR_CODE nrf_result = NRF_ERROR_CODE.NRF_UNKNOWN_ERROR;
 			ERROR_CODE ble_result = ERROR_CODE.NONE;
 			ble = new Bleservice();
@@ -146,22 +148,24 @@ namespace nrf.DFU
 				return NRF_ERROR_CODE.NRF_NO_CONNECTED;
 			}
 			ble_result = await ble.SetService(Constants.DFU_SERVICE_UUID);
-			if (!ble_result.Equals(ERROR_CODE.NONE)) {
+			if (!ble_result.Equals(ERROR_CODE.NONE))
+			{
 				Console.WriteLine($"Set Service Failed: {Constants.DFU_SERVICE_UUID}");
 				return NRF_ERROR_CODE.NRF_ERROR_SERVICE_SET;
 			}
 			ble_devname = devName;
 			nrf_result = NRF_ERROR_CODE.NRF_FOUND_DEVICE;
-			return nrf_result; 
+			return nrf_result;
 		}
 		public async Task<NRF_ERROR_CODE> ControlSubscribtion()
 		{
 			NRF_ERROR_CODE nrf_result = NRF_ERROR_CODE.NRF_ERROR_NONE;
 			string service_subchar = Constants.DFU_SERVICE_UUID + "/" + Constants.DFU_CONTROL_UUID;
 			//string service_subchar =  Constants.DFU_CONTROL_UUID;
-			string result_string = await ble.SubscribeCharacteristic(ble_devname, service_subchar, (arg) => { 
+			string result_string = await ble.SubscribeCharacteristic(ble_devname, service_subchar, (arg) =>
+			{
 				sub_result.byte_string = arg;
-				
+
 				var parts = arg.Split('\t');
 				if (parts.Length < 2)
 				{
@@ -221,9 +225,9 @@ namespace nrf.DFU
 			[FieldOffset(0)]
 			nrf_dfu_op request;
 			[FieldOffset(1)]
-			byte	type;
+			byte type;
 			[FieldOffset(2)]
-			ulong	size;
+			ulong size;
 		}
 
 		public struct object_select
@@ -272,12 +276,12 @@ namespace nrf.DFU
 				if (sub_result.byte_string.Equals(Constants.DFU_SUBSCRIBTION_INIT))
 				{
 					return false;
-                }
-                else
-                {
+				}
+				else
+				{
 					return true;
 				}
-				
+
 			}
 			catch
 			{
@@ -293,7 +297,7 @@ namespace nrf.DFU
 			{
 
 				Console.WriteLine("No Response yet");
-				if ((--i) == 0 )
+				if ((--i) == 0)
 				{
 					wait_result = false;
 					break;
@@ -304,9 +308,9 @@ namespace nrf.DFU
 		}
 		public async Task<bool> dfu_set_packet_receive_notification(ushort prn)
 		{
-			NRF_ERROR_CODE result= NRF_ERROR_CODE.NRF_ERROR_NONE;
+			NRF_ERROR_CODE result = NRF_ERROR_CODE.NRF_ERROR_NONE;
 			Console.WriteLine($"Set packet receive notification : {prn}");
-			
+
 			byte op_cmd = (byte)nrf_dfu_op.NRF_DFU_OP_RECEIPT_NOTIF_SET;
 			result = await ControlSubscribtion();
 			if (!result.Equals(NRF_ERROR_CODE.NRF_ERROR_NONE))
@@ -325,7 +329,8 @@ namespace nrf.DFU
 			}
 			bool wait_noti = await wait_notification();
 			Console.WriteLine($"wait_notification result:  {wait_noti}");
-			if (wait_noti) {
+			if (wait_noti)
+			{
 				Console.WriteLine($"noti result.string : {sub_result.byte_string}");
 			}
 			return wait_noti;
@@ -337,7 +342,7 @@ namespace nrf.DFU
 			Console.WriteLine("dfu_object_execute");
 			byte op_cmd = (byte)nrf_dfu_op.NRF_DFU_OP_CRC_GET;
 			byte[] writedata = { op_cmd };
-			
+
 			result = await ControlWrite(writedata);
 			if (!result.Equals(NRF_ERROR_CODE.NRF_ERROR_NONE))
 			{
@@ -370,14 +375,14 @@ namespace nrf.DFU
 		}
 		public async Task<bool> dfu_object_create(byte type, ulong size)
 		{
-			
+
 			NRF_ERROR_CODE result = NRF_ERROR_CODE.NRF_ERROR_NONE;
 			Console.WriteLine($"dfu_object_create: type: {type}, size: {size}");
 
 			byte op_cmd = (byte)nrf_dfu_op.NRF_DFU_OP_OBJECT_CREATE;
 			byte[] writedata = { op_cmd, type, 0x00, 0x00, 0x00, 0x00 };
-			writedata[2] = (byte)((byte) size & 0xff);
-			writedata[3] = (byte)((byte) (size >> 8) & 0xff);
+			writedata[2] = (byte)((byte)size & 0xff);
+			writedata[3] = (byte)((byte)(size >> 8) & 0xff);
 			writedata[4] = (byte)((byte)(size >> 16) & 0xff);
 			writedata[5] = (byte)((byte)(size >> 24) & 0xff);
 			result = await ControlWrite(writedata);
@@ -392,13 +397,14 @@ namespace nrf.DFU
 				Console.WriteLine($"dfu_object_create: wait_notification result:  {result_noti}");
 				return false;
 			}
-			if (sub_result.byte_array.Length < 3) {
+			if (sub_result.byte_array.Length < 3)
+			{
 				Console.WriteLine($"dfu_object_create: wait_notification error : result length :  {sub_result.byte_array.Length}");
 				return false;
 			}
-			if (sub_result.byte_array[0] != (byte) nrf_dfu_op.NRF_DFU_OP_RESPONSE ||
+			if (sub_result.byte_array[0] != (byte)nrf_dfu_op.NRF_DFU_OP_RESPONSE ||
 				sub_result.byte_array[1] != op_cmd ||
-				sub_result.byte_array[2] != (byte) nrf_dfu_result.NRF_DFU_RES_CODE_SUCCESS)
+				sub_result.byte_array[2] != (byte)nrf_dfu_result.NRF_DFU_RES_CODE_SUCCESS)
 			{
 
 				Console.WriteLine($"dfu_object_create: response result error: {sub_result.byte_array[0]:X}, {sub_result.byte_array[1]:X} , {sub_result.byte_array[2]:X}");
@@ -413,7 +419,7 @@ namespace nrf.DFU
 			NRF_ERROR_CODE result = NRF_ERROR_CODE.NRF_ERROR_NONE;
 			Console.WriteLine($"dfu_object_select: type {type}");
 			byte op_cmd = (byte)nrf_dfu_op.NRF_DFU_OP_OBJECT_SELECT;
-			byte[] writedata = { op_cmd,  type };
+			byte[] writedata = { op_cmd, type };
 
 			result = await ControlWrite(writedata);
 			if (!result.Equals(NRF_ERROR_CODE.NRF_ERROR_NONE))
@@ -422,7 +428,8 @@ namespace nrf.DFU
 				return (false, 0, 0);
 			}
 			bool result_noti = await wait_notification();
-			if (!result_noti) {
+			if (!result_noti)
+			{
 				Console.WriteLine($"dfu_object_select: wait_notification result:  {result_noti}");
 				return (false, 0, 0);
 			}
@@ -432,9 +439,10 @@ namespace nrf.DFU
 				Console.WriteLine($"dfu_object_select: wait_notification error : result length :  {sub_result.byte_array.Length}");
 				return (false, 0, 0);
 			}
-			if (sub_result.byte_array[0] != (byte) nrf_dfu_op.NRF_DFU_OP_RESPONSE ||
+			if (sub_result.byte_array[0] != (byte)nrf_dfu_op.NRF_DFU_OP_RESPONSE ||
 				sub_result.byte_array[1] != op_cmd ||
-				sub_result.byte_array[2] != (byte) nrf_dfu_result.NRF_DFU_RES_CODE_SUCCESS) {
+				sub_result.byte_array[2] != (byte)nrf_dfu_result.NRF_DFU_RES_CODE_SUCCESS)
+			{
 
 				Console.WriteLine($"dfu_object_select: response result error: {sub_result.byte_array[0]}, {sub_result.byte_array[0]} , {sub_result.byte_array[0]}");
 				return (false, 0, 0);
@@ -442,7 +450,7 @@ namespace nrf.DFU
 
 			dfu_max_size = BitConverter.ToUInt32(sub_result.byte_array, 3 /* Which byte position to convert */);
 			ulong offset = BitConverter.ToUInt32(sub_result.byte_array, 7 /* Which byte position to convert */);
-			ulong crc	 = BitConverter.ToUInt32(sub_result.byte_array, 11 /* Which byte position to convert */);
+			ulong crc = BitConverter.ToUInt32(sub_result.byte_array, 11 /* Which byte position to convert */);
 
 
 			//dfu_max_mtu_size = leto32host(sub_result.byte_array[3], sub_result.byte_array[4], sub_result.byte_array[5], sub_result.byte_array[6]);
@@ -458,7 +466,7 @@ namespace nrf.DFU
 			Console.WriteLine("dfu_object_execute");
 			byte op_cmd = (byte)nrf_dfu_op.NRF_DFU_OP_OBJECT_EXECUTE;
 			byte[] writedata = { op_cmd };
-			
+
 			result = await ControlWrite(writedata);
 			if (!result.Equals(NRF_ERROR_CODE.NRF_ERROR_NONE))
 			{
@@ -519,7 +527,7 @@ namespace nrf.DFU
 			} while ((length > 0) && (written < size) && (written < (int)dfu_max_size));
 			var checkSum = dfu_crc32.GetCurrentHash();
 			dfu_current_crc = BitConverter.ToUInt32(checkSum, 0 /* Which byte position to convert */);
-			
+
 			//Console.WriteLine($"dfu_object_write_file: dfu_max_size:{dfu_max_size}, size:{size } written:{written} bytes CRC: 0x{dfu_current_crc:X8}");
 
 			return true;
@@ -529,8 +537,8 @@ namespace nrf.DFU
 		public ulong calc_crc_file(string filename, int size)
 		{
 			byte[] fbuf = new byte[CHUNK_SIZE];
-			int  read = 0;
-			int  to_read;
+			int read = 0;
+			int to_read;
 
 			int length = 0;
 			var crc_file = new Crc32();
@@ -541,7 +549,7 @@ namespace nrf.DFU
 
 			do
 			{
-				
+
 				to_read = Math.Min(CHUNK_SIZE, size - read);
 				var chunk = br.ReadBytes(to_read);
 				length = chunk.Length;
@@ -553,7 +561,7 @@ namespace nrf.DFU
 				read += length;
 				crc_file.Append(chunk);
 			} while (length > 0 && read < size);
-			
+
 			var checkSum = crc_file.GetCurrentHash();
 			var hash = BitConverter.ToString(checkSum).Replace("-", "").ToLower();
 
@@ -570,15 +578,16 @@ namespace nrf.DFU
 			dfu_file_name = filename;
 			FileStream fs = new FileStream(dfu_file_name, FileMode.Open, FileAccess.Read);
 			dfu_br = new BinaryReader(fs);
-			int file_size = (int)dfu_br.BaseStream.Length;
+			dfu_file_size = (int)dfu_br.BaseStream.Length;
 
 			var result = await dfu_object_select(type);
-			if (! result.flag ) {
+			if (!result.flag)
+			{
 				return NRF_ERROR_CODE.NRF_ERROR_DFU_OBJ_SELECT;
 			}
 
 			/* object with same length and CRC already received */
-			if (((int)result.offset == file_size) && (calc_crc_file(dfu_file_name, file_size) == result.crc)) 
+			if (((int)result.offset == dfu_file_size) && (calc_crc_file(dfu_file_name, dfu_file_size) == result.crc))
 			{
 				Console.WriteLine("Object already received: type: ${type} filename: ${dfu_file_name} ");
 				/* Don't transfer anything and skip to the Execute command */
@@ -599,36 +608,17 @@ namespace nrf.DFU
 					Console.WriteLine("CRC does not match (restarting from {0})", result.offset);
 					dfu_current_crc = calc_crc_file(dfu_file_name, (int)result.offset);
 				}
-#if false
-				else if ((int)result.offset < file_size)
-				{	/* CRC matches */
-					/* transfer remaining data if necessary */
-					if (remain > 0)
-					{
-						ulong end = result.offset + dfu_max_size - remain;
-						if (!dfu_object_write_file(zf, end))
-						{
-							return DFU_RET_ERROR;
-						}
-					}
-					ret = dfu_object_execute();
-					if (ret != DFU_RET_SUCCESS)
-					{
-						return ret;
-					}
-				}
-#endif
 			}
 			else if (result.offset == 0)
 			{
-//				dfu_current_crc = crc32(0L, Z_NULL, 0);
+				//				dfu_current_crc = crc32(0L, Z_NULL, 0);
 				dfu_current_crc = 0;
 			}
 			/* create and write objects of max_size */
-			Console.WriteLine($"dfu_object_write_procedure: type: {type}, name: {filename}, size: {file_size}");
-			for (int i = 0; i < file_size; i += (int)dfu_max_size)
+			Console.WriteLine($"dfu_object_write_procedure: type: {type}, name: {filename}, size: {dfu_file_size}");
+			for (int i = 0; i < dfu_file_size; i += (int)dfu_max_size)
 			{
-				int osz = Math.Min(file_size - i, (int)dfu_max_size);
+				int osz = Math.Min(dfu_file_size - i, (int)dfu_max_size);
 				var obj_result = await dfu_object_create(type, (ulong)osz);
 				if (!obj_result)
 				{
@@ -641,7 +631,7 @@ namespace nrf.DFU
 					Console.WriteLine($"dfu_object_write_procedure: dfu_object_write Error");
 					return NRF_ERROR_CODE.NRF_ERROR_DFU_OBJ_WRITE_FILE;
 				}
-	
+
 				ulong rcrc = await dfu_get_crc();
 				if (rcrc != dfu_current_crc)
 				{
@@ -660,5 +650,15 @@ namespace nrf.DFU
 			Console.WriteLine($"dfu_object_write_procedure: Done");
 			return NRF_ERROR_CODE.NRF_ERROR_NONE;
 		}  // end of the function
+
+		public ulong dfu_object_write_procedure_progress()
+		{
+			ulong position = 0;
+			if ( (dfu_br != null) && (dfu_file_size != 0 ) )
+			{
+				position = (ulong)(((float)dfu_br.BaseStream.Position*100)/dfu_file_size);
+			}
+			return position;
+		}
 	}
 }

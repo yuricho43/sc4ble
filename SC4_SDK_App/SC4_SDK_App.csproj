@@ -34,9 +34,8 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="sc4_ble, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\sc4_ble\bin\Release\sc4_ble.dll</HintPath>
+    <Reference Include="sc4_ble">
+      <HintPath>..\..\sc4ble_SDK\sc4api\sc4_ble.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />

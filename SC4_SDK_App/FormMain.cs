@@ -6,8 +6,10 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using Ble.Service;
 using sc4_ble;
 
 namespace SC4_SDK_App
@@ -182,11 +184,11 @@ namespace SC4_SDK_App
         //--- callback function
         public int Process_Notification_Callback(string strResult)
         {
-
             listDebug.Invoke((MethodInvoker)delegate ()
             {
                 listDebug.Items.Add(strResult);
             });
+            Console.WriteLine(strResult);
 
             return 0;
         }
@@ -237,14 +239,46 @@ namespace SC4_SDK_App
             }
         }
 
+        public void Execute_DFU_Thread(object args)
+        {
+            Array argArray = new object[2];
+            argArray = (Array)args;
+            string strDat = (string)argArray.GetValue(0);
+            string strBin = (string)argArray.GetValue(1);
+
+            gSC4Lib.SC4_DFU(strDat, strBin);
+        }
+
         private void btnDFU_Click(object sender, EventArgs e)
         {
+
             string dfu_ap_dat_file_name, dfu_ap_bin_file_name;
             dfu_ap_dat_file_name = textDat.Text.ToString();
             dfu_ap_bin_file_name = textBin.Text.ToString();
+            object args = new object[2] { dfu_ap_dat_file_name, dfu_ap_bin_file_name};
 
-            gSC4Lib.SC4_DFU(dfu_ap_dat_file_name, dfu_ap_bin_file_name);
+            timerDFU.Enabled = true;
+
+            //--- because DFU is sync process, you should start with thread if you want get progress.
+            Thread t1 = new Thread(new ParameterizedThreadStart(Execute_DFU_Thread));
+            t1.Start(args);
+
+            // gSC4Lib.SC4_DFU(dfu_ap_dat_file_name, dfu_ap_bin_file_name);
             ///////////////////////////////////////////////////////
+        }
+
+        private void timerDFU_Tick(object sender, EventArgs e)
+        {
+            int progress = gSC4Lib.SC4_Get_DFU_Progress();
+            progressBar1.Value = progress;
+
+            Console.WriteLine(progress.ToString());
+
+            if (progress > 95)
+            {
+                progressBar1.Value = 100;
+                timerDFU.Enabled = false;
+            }
         }
     }
 }

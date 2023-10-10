@@ -22,6 +22,7 @@ namespace sc4_ble
         public static string gCharNameWrite = null;
         public static string gCharNameNotification = null;
         public int gStatus = 0;     //0: nothing, 1: waiting, 2: completed
+        public int gDFUMode = 0;
         List<string> gServiceList = null;
         int gIxService = -1;
 
@@ -81,8 +82,10 @@ namespace sc4_ble
         public void CallbackFunction(ERROR_CODE er, string result)
         {
             gResult = "[LIB]" + er.ToString() + "." + result;
-            if (gCallback != null)
+            /*
+             if (gCallback != null)
                 gCallback(gResult);
+            */
         }
 
         //***************************************************************************
@@ -101,7 +104,7 @@ namespace sc4_ble
             TaskName taskName = (TaskName) iType;
             BleCallback bc = new BleCallback(CallbackFunction);
 
-            switch(taskName)
+            switch (taskName)
             {
                 case TaskName.OPEN_DEVICE:
                     RunTask(taskName, gDevName, null, bc);
@@ -109,6 +112,10 @@ namespace sc4_ble
 
                 case TaskName.SET_SERVICE:
                     RunTask(taskName, gDevName, gSvcName, bc);
+                    break;
+
+                case TaskName.SUBSCRIBE_CHARACTERISTIC:
+                    RunTask(taskName, gDevName, gCharNameNotification, bc);
                     break;
             }
         }
@@ -143,12 +150,14 @@ namespace sc4_ble
         //--- 3) Connect Device
         public string SC4_Connect_Device(string strDevice)
         {
+ 
             ERROR_CODE erCon = gBle.ConnnectionStatus(strDevice);
 
-            if (erCon == ERROR_CODE.BLE_CONNECTED)
-                return "Connected";
+            if (erCon == ERROR_CODE.BLE_CONNECTED && gDevName != null && gDevName == strDevice)
+                return "Already Connected";
 
             gDevName = strDevice;
+
             gStatus = 1;
 
             // Make Thread() : call RunTask
@@ -158,16 +167,17 @@ namespace sc4_ble
             // wait callback called
             while (gStatus != 2)
             {
-                Thread.Sleep(200);
+                Thread.Sleep(300);
             }
 
             // check if connected, then retrieve service & characteristics
             erCon = gBle.ConnnectionStatus(strDevice);
             if (erCon == ERROR_CODE.BLE_CONNECTED)
             {
+
                 // Get Service, Set Service
                 SC4_GetServiceList();       // Get & Set Service
-
+                Thread.Sleep(300);
                 // Set Notification Subscribe
                 SC4_Subscribe_Characteristics(gDevName, "");    // find notification chars and set subscribe
             }
@@ -270,8 +280,18 @@ namespace sc4_ble
 
             if (gCharNameNotification != null)
             {
-                BleCallback bc = new BleCallback(CallbackFunction);
-                RunTask(TaskName.SUBSCRIBE_CHARACTERISTIC, devName, gCharNameNotification, bc);
+                gStatus = 1;
+
+                // Make Thread() : call RunTask
+                Thread t1 = new Thread(new ParameterizedThreadStart(Running_Ble_Task));
+                t1.Start(TaskName.SUBSCRIBE_CHARACTERISTIC);
+
+                // wait callback called
+                while (gStatus != 2)
+                {
+                    Thread.Sleep(200);
+                }
+
             }
         }
 
@@ -288,6 +308,7 @@ namespace sc4_ble
             // devName, characterName + command
             if (gCharNameWrite != null)
             {
+ 
                 BleCallback bc = new BleCallback(CallbackFunction);
                 string strFinalCmd = gCharNameWrite + " " + strCommand;
                 RunTask(TaskName.WRITE_CHARACTERISTIC, gDevName, strFinalCmd, bc);
@@ -318,6 +339,11 @@ namespace sc4_ble
             string strDFU = "53 80 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 45 E8";
             SC4_WriteCommand(strDFU);
 
+            gDevName = null;        // change status to disconnected
+            gCharNameWrite = null;
+            gCharNameNotification = null;
+
+            gDFUMode = 1;            // DFU 
             NRF_ERROR_CODE result;
             string parameters = "SC4 DFU";
 
@@ -330,6 +356,7 @@ namespace sc4_ble
             {
                 if (gCallback != null)
                     gCallback("[LIB]" + $"Open Error:  {result}");
+                gDFUMode = 0;
                 return;
             }
             bool noti_result = await dfu.dfu_set_packet_receive_notification(0);
@@ -353,6 +380,7 @@ namespace sc4_ble
             {
                 if (gCallback != null)
                     gCallback("[LIB]" + $"dfu_object_write_procedure: Error {dfu_ap_dat_file_name}");
+                gDFUMode = 0;
                 return;
             }
             if (gCallback != null)
@@ -366,14 +394,22 @@ namespace sc4_ble
             {
                 if (gCallback != null)
                     gCallback("[LIB]" + $"dfu_object_write_procedure: Error {dfu_ap_bin_file_name}");
+                gDFUMode = 0;
                 return;
             }
+
             if (gCallback != null)
                 gCallback("[LIB] SC4 DFU Finished. Reboot SC4 Device.");
+
+            gBle.CloseDevice();
+            gDFUMode = 0;
         }
 
         public int SC4_Is_Connected(string strDevice)
         {
+            if (gDevName == null)
+                return -1;
+
             ERROR_CODE erCon = gBle.ConnnectionStatus(strDevice);
             if (erCon == ERROR_CODE.BLE_CONNECTED)
                 return 0;
@@ -381,5 +417,13 @@ namespace sc4_ble
             return -1;
         }
 
+        public int SC4_Get_DFU_Progress()
+        {
+            if (gDFUMode != 1)   // not dfu mode
+                return 0;
+
+            int progress = (int) dfu.dfu_object_write_procedure_progress();
+            return progress;
+        }
     }
 }
