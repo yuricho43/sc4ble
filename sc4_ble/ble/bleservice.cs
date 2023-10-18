@@ -21,13 +21,7 @@ namespace Ble.Service
     {
         // "Magic" string for all BLE devices
         string[] _requestedBLEProperties = { "System.Devices.Aep.DeviceAddress", "System.Devices.Aep.IsConnected", "System.Devices.Aep.Bluetooth.Le.IsConnectable" };
-
-        // BT_Code: Example showing paired and non-paired in a single query.
-        //string _aqsAllBLEDevices = "(System.Devices.Aep.ProtocolId:=\"{bb7bb05e-5972-42b5-94fc-76eaa7084d49}\")";
-        //string[] _requestedBLEProperties = { "System.Devices.Aep.DeviceAddress", "System.Devices.Aep.Bluetooth.Le.IsConnectable", "System.Devices.Aep.IsPresent" };
-
         string _aqsAllBLEDevices = "(System.Devices.Aep.ProtocolId:=\"{bb7bb05e-5972-42b5-94fc-76eaa7084d49}\")";
-        string[] requestedProperties = { "System.Devices.Aep.DeviceAddress", "System.Devices.Aep.Bluetooth.Le.IsConnectable", "System.Devices.Aep.IsConnected",  };
 
 
         ObservableCollection<BluetoothLEDeviceDisplay> KnownDevices = new ObservableCollection<BluetoothLEDeviceDisplay>();
@@ -45,7 +39,6 @@ namespace Ble.Service
         Action<string> _subscribers_callback = null;
         static ManualResetEvent _notifyCompleteEvent = null;
 
-        int test = 0;
         // Current data format
         DataFormat _dataFormat = DataFormat.Dec;
         DataFormat _sendDataFormat = DataFormat.UTF8;
@@ -53,31 +46,33 @@ namespace Ble.Service
         // Current send data format
         //static List<DataFormat> _receivedDataFormat = new List<DataFormat> { DataFormat.UTF8, DataFormat.Hex };
         static List<DataFormat> _receivedDataFormat = new List<DataFormat> {DataFormat.Hex };
+        bool bleDebug = false;
         public Bleservice()
         {
-            Console.WriteLine("instance create");
+           if(bleDebug) Console.WriteLine("instance create");
         }
         public ERROR_CODE StartScan()
         {
+            CloseDevice();
             AutoResetEvent autoEvent = new AutoResetEvent(false);
-            //var watcher = DeviceInformation.CreateWatcher(BluetoothLEDevice.GetDeviceSelectorFromConnectionStatus(BluetoothConnectionStatus.Connected), _requestedBLEProperties, DeviceInformationKind.AssociationEndpointContainer);
             var watcher = DeviceInformation.CreateWatcher(_aqsAllBLEDevices, _requestedBLEProperties, DeviceInformationKind.AssociationEndpoint);
             watcher.Added += (DeviceWatcher arg1, DeviceInformation devInfo) =>
             {
                 if (_deviceList.FirstOrDefault(d => d.Id.Equals(devInfo.Id) || d.Name.Equals(devInfo.Name)) == null)
-                    _deviceList.Add(devInfo);
+                {
+                    if (!devInfo.Name.Equals(Constants.SC4_NAME_DFU))
+                    {
+                        if (devInfo.Name.StartsWith(Constants.SC4_NAME_PREFIX))
+                            _deviceList.Add(devInfo);
+                    }
+
+                }
+                
             };
-            watcher.Updated += (_, __) => { }; // We need handler for this event, even an empty!
-            //Watch for a device being removed by the watcher
-            //watcher.Removed += (DeviceWatcher sender, DeviceInformationUpdate devInfo) =>
-            //{
-            //    _deviceList.Remove(FindKnownDevice(devInfo.Id));
-            //};
- 
+            watcher.Updated += (_, __) => { }; // We need handler for this event, even an empty! 
             watcher.EnumerationCompleted += (DeviceWatcher arg1, object arg) => { arg1.Stop(); };
             watcher.Stopped += (DeviceWatcher arg1, object arg) => { _deviceList.Clear(); arg1.Start(); };
             watcher.Start();
-            //KnownDevices.Clear();
             autoEvent.WaitOne(3000);
             if (_deviceList.Count == 0)
                 return ERROR_CODE.NO_SELECTED_SERVICE;
@@ -85,8 +80,8 @@ namespace Ble.Service
         }
         public ERROR_CODE StartScan(string devName, Action<string> callback)
         {
+            CloseDevice();
             AutoResetEvent autoEvent = new AutoResetEvent(false);
-            //var watcher = DeviceInformation.CreateWatcher(BluetoothLEDevice.GetDeviceSelectorFromConnectionStatus(BluetoothConnectionStatus.Connected), _requestedBLEProperties, DeviceInformationKind.AssociationEndpointContainer);
             var watcher = DeviceInformation.CreateWatcher(_aqsAllBLEDevices, _requestedBLEProperties, DeviceInformationKind.AssociationEndpoint);
             watcher.Added += (DeviceWatcher arg1, DeviceInformation devInfo) =>
             {
@@ -99,21 +94,15 @@ namespace Ble.Service
                 }
             };
             watcher.Updated += (_, __) => { }; // We need handler for this event, even an empty!
-            //Watch for a device being removed by the watcher
-            //watcher.Removed += (DeviceWatcher sender, DeviceInformationUpdate devInfo) =>
-            //{
-            //    _deviceList.Remove(FindKnownDevice(devInfo.Id));
-            //};
             watcher.EnumerationCompleted += (DeviceWatcher arg1, object arg) => { arg1.Stop(); };
-            //watcher.Stopped += (DeviceWatcher arg1, object arg) => { _deviceList.Clear(); arg1.Start(); };
             watcher.Stopped += (DeviceWatcher arg1, object arg) => { callback("Scan Stopped"); };
             watcher.Start();
-            //KnownDevices.Clear();
             autoEvent.WaitOne(3000);
             if (_deviceList.Count == 0)
                 return ERROR_CODE.NO_SELECTED_SERVICE;
             return ERROR_CODE.BLE_FOUND_DEVICE;
         }
+
         public void CloseDevice()
         {
             // Remove all subscriptions
@@ -129,7 +118,6 @@ namespace Ble.Service
             }
             _deviceList?.Clear();
         }
-
 
         public ERROR_CODE ConnnectionStatus(string deviceName)
         {
@@ -166,13 +154,13 @@ namespace Ble.Service
                 if (ConnnectionStatus(devName) != ERROR_CODE.BLE_CONNECTED)
                 {
                     task_result = GetErrorString(ERROR_CODE.BLE_NO_CONNECTED);
-                    Console.WriteLine("No BLE device connected.");
+                    if(bleDebug) Console.WriteLine("No BLE device connected.");
                     return task_result;
                 }
                 if (string.IsNullOrEmpty(param))
                 {
                     task_result = GetErrorString(ERROR_CODE.CMD_WRONG_PARAMETER);
-                    Console.WriteLine("Nothing to read, please specify characteristic name or #.");
+                    if(bleDebug) Console.WriteLine("Nothing to read, please specify characteristic name or #.");
                     return task_result;
                 }
 
@@ -205,7 +193,7 @@ namespace Ble.Service
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"READ_EXCEPTION_2. Can't read characteristics: {ex.Message}");
+                            if(bleDebug) Console.WriteLine($"READ_EXCEPTION_2. Can't read characteristics: {ex.Message}");
                             task_result = GetErrorString(ERROR_CODE.READ_EXCEPTION_2);
                         }
 
@@ -217,7 +205,7 @@ namespace Ble.Service
                 {
                     if (_selectedService == null)
                     {
-                        Console.WriteLine("No service is selected.");
+                        if(bleDebug) Console.WriteLine("No service is selected.");
                         task_result = GetErrorString(ERROR_CODE.NO_SELECTED_SERVICE);
                     }
                     chars = new List<BluetoothLEAttributeDisplay>(_characteristics);
@@ -227,7 +215,7 @@ namespace Ble.Service
                 // Read characteristic
                 if (chars.Count == 0)
                 {
-                    Console.WriteLine("No Characteristics");
+                    if(bleDebug) Console.WriteLine("No Characteristics");
                     task_result = GetErrorString(ERROR_CODE.READ_NOTHING_TO_READ);
                     return task_result;
                 }
@@ -242,19 +230,19 @@ namespace Ble.Service
 
                         if (result.Status == GattCommunicationStatus.Success)
                         {
-                            Console.WriteLine(Utilities.FormatValue(result.Value, _dataFormat));
+                            if(bleDebug) Console.WriteLine(Utilities.FormatValue(result.Value, _dataFormat));
                             _resultCharacteristic = Utilities.FormatValue(result.Value, _dataFormat);
                             task_result = GetErrorString(ERROR_CODE.NONE) + " " + _resultCharacteristic;
                         }
                         else
                         {
-                            Console.WriteLine($"Read failed: {result.Status}");
+                            if(bleDebug) Console.WriteLine($"Read failed: {result.Status}");
                             task_result = GetErrorString(ERROR_CODE.READ_FAIL);
                         }
                     }
                     else
                     {
-                        Console.WriteLine($"Invalid characteristic {charName}");
+                        if(bleDebug) Console.WriteLine($"Invalid characteristic {charName}");
                         task_result = GetErrorString(ERROR_CODE.READ_INVALID_CHARACTERISTIC);
                     }
 
@@ -262,15 +250,12 @@ namespace Ble.Service
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"READ_EXCEPTION_1. Can't read characteristics: {ex.Message}");
+                if(bleDebug) Console.WriteLine($"READ_EXCEPTION_1. Can't read characteristics: {ex.Message}");
                 task_result = GetErrorString(ERROR_CODE.READ_EXCEPTION_1);
             }
             return task_result;
         }
-        /// <summary>
-        /// This function subscribe data from the specific BLE characteristic 
-        /// </summary>
-        /// <param name="param"></param>
+
         public async Task<string> SubscribeCharacteristic(string devName, string param, Action<string> callback)
         {
             string task_result = GetErrorString(ERROR_CODE.NONE);
@@ -279,13 +264,13 @@ namespace Ble.Service
                 if (ConnnectionStatus(devName) != ERROR_CODE.BLE_CONNECTED)
                 {
                     task_result = GetErrorString(ERROR_CODE.BLE_NO_CONNECTED);
-                    Console.WriteLine("No BLE device connected.");
+                    if(bleDebug) Console.WriteLine("No BLE device connected.");
                     return task_result;
                 }
                 if (string.IsNullOrEmpty(param))
                 {
                     task_result = GetErrorString(ERROR_CODE.CMD_WRONG_PARAMETER);
-                    Console.WriteLine("Nothing to read, please specify characteristic name or #.");
+                    if(bleDebug) Console.WriteLine("Nothing to read, please specify characteristic name or #.");
                     return task_result;
                 }
 
@@ -318,7 +303,7 @@ namespace Ble.Service
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"SUBSCRIBE_EXCEPTION_2. Can't read characteristics: {ex.Message}");
+                            if(bleDebug) Console.WriteLine($"SUBSCRIBE_EXCEPTION_2. Can't read characteristics: {ex.Message}");
                             task_result = GetErrorString(ERROR_CODE.SUBSCRIBE_EXCEPTION_2);
                         }
 
@@ -330,7 +315,7 @@ namespace Ble.Service
                 {
                     if (_selectedService == null)
                     {
-                        Console.WriteLine("No service is selected.");
+                        if(bleDebug) Console.WriteLine("No service is selected.");
                         task_result = GetErrorString(ERROR_CODE.NO_SELECTED_SERVICE);
                         return task_result;
                     }
@@ -341,7 +326,7 @@ namespace Ble.Service
                 // Subscribtion characteristic
                 if (chars.Count == 0)
                 {
-                    Console.WriteLine("No Characteristics");
+                    if(bleDebug) Console.WriteLine("No Characteristics");
                     task_result = GetErrorString(ERROR_CODE.SUBSCRIBE_NOTHING_TO_READ);
                     return task_result;
                 }
@@ -357,7 +342,7 @@ namespace Ble.Service
                             var charDisplay = new BluetoothLEAttributeDisplay(attr.characteristic);
                             if (!charDisplay.CanNotify && !charDisplay.CanIndicate)
                             {
-                                Console.WriteLine($"Characteristic {useName} does not support notify or indicate");
+                                if(bleDebug) Console.WriteLine($"Characteristic {useName} does not support notify or indicate");
                                 task_result = GetErrorString(ERROR_CODE.SUBSCRIBE_NOT_SUPPORT_NOTIFY_INDICATE);
                                 return task_result;
                             }
@@ -379,27 +364,27 @@ namespace Ble.Service
                                 if (!Console.IsOutputRedirected)
                                 {
                                     if (charDisplay.CanNotify)
-                                        Console.WriteLine($"Subscribed to characteristic {useName} (notify)");
+                                        if(bleDebug) Console.WriteLine($"Subscribed to characteristic {useName} (notify)");
                                     else
-                                        Console.WriteLine($"Subscribed to characteristic {useName} (indicate)");
+                                        if(bleDebug) Console.WriteLine($"Subscribed to characteristic {useName} (indicate)");
                                 }
 
                             }
                             else
                             {
-                                Console.WriteLine($"Can't subscribe to characteristic {useName}");
+                                if(bleDebug) Console.WriteLine($"Can't subscribe to characteristic {useName}");
                                 task_result = GetErrorString(ERROR_CODE.SUBSCRIBE_CANNOT_SUBSCRIBE);
                             }
                         }
                         else
                         {
-                            Console.WriteLine($"Already  Subscribed to characteristic {charName}");
+                            if(bleDebug) Console.WriteLine($"Already  Subscribed to characteristic {charName}");
                             task_result = GetErrorString(ERROR_CODE.SUBSCRIBE_ALREADY_CHARACTERISTIC);
                         }
                     }
                     else
                     {
-                        Console.WriteLine($"Invalid characteristic {charName}");
+                        if(bleDebug) Console.WriteLine($"Invalid characteristic {charName}");
                         task_result = GetErrorString(ERROR_CODE.SUBSCRIBE_INVALID_CHARACTERISTIC);
                     }
 
@@ -407,27 +392,22 @@ namespace Ble.Service
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"SUBSCRIBE_EXCEPTION_1. Can't read characteristics: {ex.Message}");
+                if(bleDebug) Console.WriteLine($"SUBSCRIBE_EXCEPTION_1. Can't read characteristics: {ex.Message}");
                 task_result = GetErrorString(ERROR_CODE.READ_EXCEPTION_1);
             }
             return task_result;
         }
 
-
-        /// <summary>
-        /// This function is used to unsubscribe from "ValueChanged" event
-        /// </summary>
-        /// <param name="param"></param>
         public async void Unsubscribe(string param)
         {
             if (_subscribers.Count == 0)
             {
-                Console.WriteLine("No subscription for value changes found.");
+                if(bleDebug) Console.WriteLine("No subscription for value changes found.");
                 return;
             }
             else if (string.IsNullOrEmpty(param))
             {
-                Console.WriteLine("Please specify characteristic name or # (for single subscription) or type \"unsubs all\" to remove all subscriptions");
+                if(bleDebug) Console.WriteLine("Please specify characteristic name or # (for single subscription) or type \"unsubs all\" to remove all subscriptions");
                 return;
             }
             // Unsubscribe from all value changed events
@@ -435,7 +415,7 @@ namespace Ble.Service
             {
                 foreach (var sub in _subscribers)
                 {
-                    Console.WriteLine($"Unsubscribe from {sub.Uuid}");
+                    if(bleDebug) Console.WriteLine($"Unsubscribe from {sub.Uuid}");
                     await sub.WriteClientCharacteristicConfigurationDescriptorAsync(GattClientCharacteristicConfigurationDescriptorValue.None);
                     sub.ValueChanged -= Characteristic_ValueChanged;
                 }
@@ -444,21 +424,15 @@ namespace Ble.Service
             // unsubscribe from specific event
             else
             {
-                Console.WriteLine("Not supported, please use \"unsubs all\"");
+                if(bleDebug) Console.WriteLine("Not supported, please use \"unsubs all\"");
             }
             _subscribers_callback = null;
             return;
         }
-        /// <summary>
-        /// Event handler for ValueChanged callback
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="args"></param>
         public void Characteristic_ValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args)
         {
             byte[] data;
             CryptographicBuffer.CopyToByteArray(args.CharacteristicValue, out data);
-            //Console.Write($"debugging data : {data.Length}, {data[0]}, {data[1]}, {data[2]} \r\n");
             var newValue = Utilities.FormatValueMultipleFormattes(args.CharacteristicValue, _receivedDataFormat);
 
            // Console.Write($"Value changed for {sender.Uuid} ({args.CharacteristicValue.Length} bytes):\n{newValue}\nBLE: ");
@@ -472,10 +446,8 @@ namespace Ble.Service
             }
 
         }
-        /// <summary>
+
         /// This function Write data from the specific BLE characteristic 
-        /// </summary>
-        /// <param name="param"></param>
         public async Task<string> WriteCharacteristic(string devName, string param)
         {
             string task_result = GetErrorString(ERROR_CODE.NONE);
@@ -484,13 +456,13 @@ namespace Ble.Service
                 if (ConnnectionStatus(devName) != ERROR_CODE.BLE_CONNECTED)
                 {
                     task_result = GetErrorString(ERROR_CODE.BLE_NO_CONNECTED);
-                    Console.WriteLine("No BLE device connected.");
+                    if(bleDebug) Console.WriteLine("No BLE device connected.");
                     return task_result;
                 }
                 if (string.IsNullOrEmpty(param))
                 {
                     task_result = GetErrorString(ERROR_CODE.CMD_WRONG_PARAMETER);
-                    Console.WriteLine("Nothing to read, please specify characteristic name or #.");
+                    if(bleDebug) Console.WriteLine("Nothing to read, please specify characteristic name or #.");
                     return task_result;
                 }
 
@@ -503,7 +475,7 @@ namespace Ble.Service
                 if (parts.Length < 2)
                 {
                     task_result = GetErrorString(ERROR_CODE.CMD_WRONG_PARAMETER);
-                    Console.WriteLine("Insufficient data for write, please provide characteristic name and data.");
+                    if(bleDebug) Console.WriteLine("Insufficient data for write, please provide characteristic name and data.");
                     return task_result;
                 }
 
@@ -512,7 +484,7 @@ namespace Ble.Service
                 if (string.IsNullOrEmpty(data))
                 {
                     task_result = GetErrorString(ERROR_CODE.CMD_WRONG_PARAMETER);
-                    Console.WriteLine("Insufficient data for write.");
+                    if(bleDebug) Console.WriteLine("Insufficient data for write.");
                     return task_result;
                 }
                 var buffer = Utilities.FormatData(data, DataFormat.Hex);
@@ -520,7 +492,7 @@ namespace Ble.Service
                 if (buffer == null)
                 {
                     task_result = GetErrorString(ERROR_CODE.WRITE_NOTHING_TO_WRITE);
-                    Console.WriteLine("Incorrect data format.");
+                    if(bleDebug) Console.WriteLine("Incorrect data format.");
                     return task_result;
                 }
 
@@ -553,7 +525,7 @@ namespace Ble.Service
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"WRITE_EXCEPTION_2. Can't read characteristics: {ex.Message}");
+                            if(bleDebug) Console.WriteLine($"WRITE_EXCEPTION_2. Can't read characteristics: {ex.Message}");
                             task_result = GetErrorString(ERROR_CODE.WRITE_EXCEPTION_2);
                             return task_result;
                         }
@@ -563,7 +535,7 @@ namespace Ble.Service
                 {
                     if (_selectedService == null)
                     {
-                        Console.WriteLine("No service is selected.");
+                        if(bleDebug) Console.WriteLine("No service is selected.");
                         task_result = GetErrorString(ERROR_CODE.NO_SELECTED_SERVICE);
                     }
                     chars = new List<BluetoothLEAttributeDisplay>(_characteristics);
@@ -572,7 +544,7 @@ namespace Ble.Service
 
                 if (chars.Count == 0)
                 {
-                    Console.WriteLine("No Characteristics");
+                    if(bleDebug) Console.WriteLine("No Characteristics");
                     task_result = GetErrorString(ERROR_CODE.WRITE_NOTHING_TO_WRITE);
                     return task_result;
                 }
@@ -587,18 +559,18 @@ namespace Ble.Service
 
                         if (result.Status == GattCommunicationStatus.Success)
                         {
-                            //Console.WriteLine($"Write Succeed: {result.Status} {Utilities.FormatProtocolError(result.ProtocolError)}");
+                            //if(bleDebug) Console.WriteLine($"Write Succeed: {result.Status} {Utilities.FormatProtocolError(result.ProtocolError)}");
                             task_result = GetErrorString(ERROR_CODE.NONE);
                         }
                         else
                         {
-                            Console.WriteLine($"Write failed: {result.Status}");
+                            if(bleDebug) Console.WriteLine($"Write failed: {result.Status}");
                             task_result = GetErrorString(ERROR_CODE.WRITE_FAIL);
                         }
                     }
                     else
                     {
-                        Console.WriteLine($"Invalid characteristic {charName}");
+                        if(bleDebug) Console.WriteLine($"Invalid characteristic {charName}");
                         task_result = GetErrorString(ERROR_CODE.WRITE_INVALID_CHARACTERISTIC);
                     }
 
@@ -606,12 +578,17 @@ namespace Ble.Service
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"READ_EXCEPTION_1. Can't read characteristics: {ex.Message}");
+                if(bleDebug) Console.WriteLine($"READ_EXCEPTION_1. Can't read characteristics: {ex.Message}");
                 task_result = GetErrorString(ERROR_CODE.WRITE_EXCEPTION_1);
             }
             return task_result;
         }
 
+
+        // alternative write charateristic for fast speed up instead of WriteCharacteristic()
+        // 1. write_set_char
+        // 2. write_set_data
+        // 3. write_run
         public struct st_write_char
         {
             public string dev_name;
@@ -623,15 +600,8 @@ namespace Ble.Service
         public ERROR_CODE write_set_char(string dev_name, string dev_char)
         {
             ERROR_CODE result = ERROR_CODE.NONE;
-            write_char.dev_name = dev_name;
-            
+            write_char.dev_name = dev_name;            
             write_char.char_name = dev_char;
-
-            //var write_char.attr = _characteristics.FirstOrDefault(c => c.Name.Equals(dev_char));
-            //if (write_char.attr == null) {
-            //    result = ERROR_CODE.WRITE_INVALID_CHARACTERISTIC;
-            //}
-            //chars = new List<BluetoothLEAttributeDisplay>(_characteristics);
 
             //string useName = Utilities.GetIdByNameOrNumber(_characteristics, write_char.char_name);
             List<BluetoothLEAttributeDisplay> chars = new List<BluetoothLEAttributeDisplay>();
@@ -655,19 +625,19 @@ namespace Ble.Service
                 if (ConnnectionStatus(write_char.dev_name) != ERROR_CODE.BLE_CONNECTED)
                 {
                     result = ERROR_CODE.BLE_NO_CONNECTED;
-                    Console.WriteLine("No BLE device connected.");
+                    if(bleDebug) Console.WriteLine("No BLE device connected.");
                     return result;
                 }
                 if (write_char.buffer == null)
                 {
                     result = ERROR_CODE.WRITE_NOTHING_TO_WRITE;
-                    Console.WriteLine("Incorrect data format.");
+                    if(bleDebug) Console.WriteLine("Incorrect data format.");
                     return result;
                 }
 
                 if (_selectedService == null)
                 {
-                    Console.WriteLine("No service is selected.");
+                    if(bleDebug) Console.WriteLine("No service is selected.");
                     result = ERROR_CODE.NO_SELECTED_SERVICE;
 
                 }
@@ -683,33 +653,30 @@ namespace Ble.Service
                     GattWriteResult result_attr = await write_char.attr.characteristic.WriteValueWithResultAsync(buffer);
                     if (result_attr.Status == GattCommunicationStatus.Success)
                     {
-                        //Console.WriteLine($"Write Succeed: {result.Status} {Utilities.FormatProtocolError(result.ProtocolError)}");
+                        //if(bleDebug) Console.WriteLine($"Write Succeed: {result.Status} {Utilities.FormatProtocolError(result.ProtocolError)}");
                         result = ERROR_CODE.NONE;
                     }
                     else
                     {
-                        Console.WriteLine($"Write failed: {result_attr.Status}");
+                        if(bleDebug) Console.WriteLine($"Write failed: {result_attr.Status}");
                         result = ERROR_CODE.WRITE_FAIL;
                     }
                 }
                 else
                 {
-                    Console.WriteLine($"Invalid characteristic");
+                    if(bleDebug) Console.WriteLine($"Invalid characteristic");
                     result = ERROR_CODE.WRITE_INVALID_CHARACTERISTIC;
                 }
 
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"READ_EXCEPTION_1. Can't read characteristics: {ex.Message}");
+                if(bleDebug) Console.WriteLine($"READ_EXCEPTION_1. Can't read characteristics: {ex.Message}");
                 result = ERROR_CODE.WRITE_EXCEPTION_1;
             }
             return result;
         }
-        /// <summary>
-        /// Set active service for current device
-        /// </summary>
-        /// <param name="parameters"></param>
+
         public async Task<ERROR_CODE> SetService(string serviceName)
         {
             ERROR_CODE task_result = ERROR_CODE.NONE;
@@ -739,7 +706,7 @@ namespace Ble.Service
                                     characteristics = result.Characteristics;
                                     _selectedService = attr;
                                     _characteristics.Clear();
-                                    Console.WriteLine($"Selected service {attr.Name}.");
+                                    if(bleDebug) Console.WriteLine($"Selected service {attr.Name}.");
 
                                     if (characteristics.Count > 0)
                                     {
@@ -747,7 +714,7 @@ namespace Ble.Service
                                         {
                                             var charToDisplay = new BluetoothLEAttributeDisplay(characteristics[i]);
                                             _characteristics.Add(charToDisplay);
-                                            Console.WriteLine($"#{i:00}: {charToDisplay.Name}\t{charToDisplay.Chars}");
+                                            if(bleDebug) Console.WriteLine($"#{i:00}: {charToDisplay.Name}\t{charToDisplay.Chars}");
                                         }
                                     }
                                     else
@@ -832,6 +799,48 @@ namespace Ble.Service
             return task_result;
         }
 
+        public async Task<ERROR_CODE> OpenDevice(ulong bleaddress)
+        {
+            ERROR_CODE task_result = ERROR_CODE.NONE;
+
+            if (bleaddress == 0) {
+                task_result = ERROR_CODE.CMD_WRONG_PARAMETER;
+                return task_result;
+            }
+
+            _selectedService = null;
+            _services.Clear();
+
+            try
+            {
+                _selectedDevice = await BluetoothLEDevice.FromBluetoothAddressAsync(bleaddress).AsTask().TimeoutAfter(_timeout);
+                //string_result= $"Connecting to {_selectedDevice.Name}.";
+
+                var result = await _selectedDevice.GetGattServicesAsync(BluetoothCacheMode.Uncached);
+                if (result.Status == GattCommunicationStatus.Success)
+                {
+                    //    listStatus.Items.Adde($"Found {result.Services.Count} services:");
+
+                    for (int i = 0; i < result.Services.Count; i++)
+                    {
+                        var serviceToDisplay = new BluetoothLEAttributeDisplay(result.Services[i]);
+                        _services.Add(serviceToDisplay);
+                        //        listStatus.Items.Add($"#{i:00}: {_services[i].Name}");
+                    }
+                }
+                else
+                {
+                    //    listStatus.Items.Add($"Device {deviceName} is unreachable.");
+                    task_result = ERROR_CODE.OPENDEVICE_UNREACHABLE;
+                }
+            }
+            catch
+            {
+                task_result = ERROR_CODE.UNKNOWN_ERROR;
+            }
+            return task_result;
+        }
+
 
         public List<string> GetDeviceList()
         {
@@ -839,7 +848,24 @@ namespace Ble.Service
             result = _deviceList.OrderBy(d => d.Name).Where(d => !string.IsNullOrEmpty(d.Name)).Select(d => d.Name).ToList();
             return result;
         }
-
+        public ulong GetBluetoothAddress()
+        {
+            ulong bleAddress = 0;
+            if (_selectedDevice != null)
+            {
+                bleAddress= _selectedDevice.BluetoothAddress;
+            }
+            return bleAddress;
+        }
+        public string GetBluetoothName()
+        {
+            string current_bleName = string.Empty;
+            if (_selectedDevice != null)
+            {
+                current_bleName = _selectedDevice.Name;
+            }
+            return current_bleName;
+        }
         public List<string> GetServiceList()
         {
             List<string> result = new List<string>();
@@ -906,7 +932,7 @@ namespace Ble.Service
         }
 
 
-        static void ChangeReceivedDataFormat(string param)
+        public void ChangeReceivedDataFormat(string param)
         {
             if (!string.IsNullOrEmpty(param))
             {
@@ -941,16 +967,16 @@ namespace Ble.Service
                     }
                 }
             }
-            Console.Write($"Current received data format: ");
+            if(bleDebug) Console.Write($"Current received data format: ");
             for (int dataFormat = 0; dataFormat < _receivedDataFormat.Count; dataFormat++)
             {
                 if (dataFormat == _receivedDataFormat.Count - 1)
                 {
-                    Console.WriteLine($"{_receivedDataFormat[dataFormat]}");
+                    if(bleDebug) Console.WriteLine($"{_receivedDataFormat[dataFormat]}");
                 }
                 else
                 {
-                    Console.Write($"{_receivedDataFormat[dataFormat]}, ");
+                    if(bleDebug) Console.Write($"{_receivedDataFormat[dataFormat]}, ");
                 }
             }
         }
@@ -1085,7 +1111,7 @@ namespace Ble.Service
                     DeviceInformationCustomPairing sender,
                     DevicePairingRequestedEventArgs args)
         {
-            Console.WriteLine("Done Pairing");
+            if(bleDebug) Console.WriteLine("Done Pairing");
             args.Accept("0");
         }
 
@@ -1112,14 +1138,14 @@ namespace Ble.Service
                     var result1 = await _selectedDevice.DeviceInformation.Pairing.UnpairAsync();
                     task_result = ConvertErrorCodeUnPairing(result1.Status);
                     if (task_result != ERROR_CODE.UNPAIRED_SUCCESS) {
-                        Console.WriteLine($"{result1.Status}");
+                        if(bleDebug) Console.WriteLine($"{result1.Status}");
                         return task_result;
                     }
                 }
 
                 if (_selectedDevice.ConnectionStatus == BluetoothConnectionStatus.Disconnected)
                 {
-                    Console.WriteLine($"{_selectedDevice.Name} Try Pairing");
+                    if(bleDebug) Console.WriteLine($"{_selectedDevice.Name} Try Pairing");
                     _selectedDevice.DeviceInformation.Pairing.Custom.PairingRequested += CustomOnPairingRequested;
 
                     //var result1 = await _selectedDevice.DeviceInformation.Pairing.Custom.PairAsync(
@@ -1129,7 +1155,7 @@ namespace Ble.Service
                     _selectedDevice.DeviceInformation.Pairing.Custom.PairingRequested -= CustomOnPairingRequested;
                     task_result =  ConvertErrorCodePairing(result1.Status);
 
-                    Console.WriteLine($"{result1.Status}");
+                    if(bleDebug) Console.WriteLine($"{result1.Status}");
                     if (task_result != ERROR_CODE.PAIRING_SUCCESS)
                     {
                         return task_result;
@@ -1182,22 +1208,22 @@ namespace Ble.Service
             {
                 if (_selectedDevice == null)
                 {
-                    Console.WriteLine("Selected device is null");
+                    if(bleDebug) Console.WriteLine("Selected device is null");
                     task_result = ERROR_CODE.NO_SELECTED_SERVICE;
                     return task_result;
                 }
                 if (_selectedDevice.ConnectionStatus == BluetoothConnectionStatus.Connected)
                 //if (_selectedDevice.DeviceInformation.Pairing.IsPaired)
                 {
-                    Console.WriteLine($"{_selectedDevice.Name} Try Pairing");
+                    if(bleDebug) Console.WriteLine($"{_selectedDevice.Name} Try Pairing");
                     var result1 = await _selectedDevice.DeviceInformation.Pairing.UnpairAsync();
                     task_result = ConvertErrorCodeUnPairing(result1.Status);
-                    Console.WriteLine($"{result1.Status}");
+                    if(bleDebug) Console.WriteLine($"{result1.Status}");
                     
                 }
                 else
                 {
-                    Console.WriteLine($"{_selectedDevice.Name} wasn't paired");
+                    if(bleDebug) Console.WriteLine($"{_selectedDevice.Name} wasn't paired");
                     task_result = ERROR_CODE.UNPAIR_FAILED_DISCONNECTED;
                 }
 

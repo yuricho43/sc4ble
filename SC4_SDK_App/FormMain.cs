@@ -246,7 +246,9 @@ namespace SC4_SDK_App
             string strDat = (string)argArray.GetValue(0);
             string strBin = (string)argArray.GetValue(1);
 
-            gSC4Lib.SC4_DFU(strDat, strBin);
+            string DFUCommand = "53 75 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 45 F3";
+
+			gSC4Lib.SC4_DFU1(strDat, strBin, DFUCommand);
         }
 
         private void btnDFU_Click(object sender, EventArgs e)

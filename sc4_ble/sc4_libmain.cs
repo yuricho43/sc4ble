@@ -23,6 +23,7 @@ namespace sc4_ble
         public static string gCharNameNotification = null;
         public int gStatus = 0;     //0: nothing, 1: waiting, 2: completed
         public int gDFUMode = 0;
+        public ulong gCurrent_BleAddress = 0;
         List<string> gServiceList = null;
         int gIxService = -1;
 
@@ -150,8 +151,9 @@ namespace sc4_ble
         //--- 3) Connect Device
         public string SC4_Connect_Device(string strDevice)
         {
- 
-            ERROR_CODE erCon = gBle.ConnnectionStatus(strDevice);
+
+            gCurrent_BleAddress = 0;
+			ERROR_CODE erCon = gBle.ConnnectionStatus(strDevice);
 
             if (erCon == ERROR_CODE.BLE_CONNECTED && gDevName != null && gDevName == strDevice)
                 return "Already Connected";
@@ -181,7 +183,10 @@ namespace sc4_ble
                 // Set Notification Subscribe
                 SC4_Subscribe_Characteristics(gDevName, "");    // find notification chars and set subscribe
             }
-            return gResult;
+
+			gCurrent_BleAddress = gBle.GetBluetoothAddress();
+
+			return gResult;
         }
 
         //===========================================================================
@@ -331,13 +336,86 @@ namespace sc4_ble
             gServiceList = null;
         }
 
-        //===========================================================================
-        //--- 6) DFU
-        public async void SC4_DFU(string dfu_ap_dat_file_name, string dfu_ap_bin_file_name)
+        public async void SC4_DFU1(string dfu_ap_dat_file_name, string dfu_ap_bin_file_name, string strDFUString)
+        {
+			string strDFU = strDFUString;
+			SC4_WriteCommand(strDFU);
+
+			gDevName = null;        // change status to disconnected
+			gCharNameWrite = null;
+			gCharNameNotification = null;
+
+			gDFUMode = 1;            // DFU 
+			NRF_ERROR_CODE result;
+
+			// only allow for one connection to be open at a time
+			if (gCallback != null)
+				gCallback("[LIB] SC4 DFU Started");
+
+			var dfu_bleAddress = gCurrent_BleAddress + 1;
+			result = await dfu.Open(dfu_bleAddress);
+			if (!result.Equals(NRF_ERROR_CODE.NRF_FOUND_DEVICE))
+			{
+				if (gCallback != null)
+					gCallback("[LIB]" + $"Open Error:  {result}");
+				gDFUMode = 0;
+				return;
+			}
+			bool noti_result = await dfu.dfu_set_packet_receive_notification(0);
+			if (noti_result)
+			{
+				if (gCallback != null)
+					gCallback("[LIB]" + $"dfu_set_packet_receive_notification Success");
+			}
+			else
+			{
+				if (gCallback != null)
+					gCallback("[LIB]" + $"dfu_set_packet_receive_notification Failed");
+			}
+			///////////////////////////////////////////////////////
+
+			if (gCallback != null)
+				gCallback("[LIB] Sending Init");
+
+			result = await dfu.dfu_object_write_procedure(1, dfu_ap_dat_file_name);
+			if (!result.Equals(NRF_ERROR_CODE.NRF_ERROR_NONE))
+			{
+				if (gCallback != null)
+					gCallback("[LIB]" + $"dfu_object_write_procedure: Error {dfu_ap_dat_file_name}");
+				gDFUMode = 0;
+				return;
+			}
+			if (gCallback != null)
+			{
+				gCallback("[LIB] Init Done.");
+				gCallback("[LIB] Sending Data... Wait for around 60 seconds.");
+			}
+
+			result = await dfu.dfu_object_write_procedure(2, dfu_ap_bin_file_name);
+			if (!result.Equals(NRF_ERROR_CODE.NRF_ERROR_NONE))
+			{
+				if (gCallback != null)
+					gCallback("[LIB]" + $"dfu_object_write_procedure: Error {dfu_ap_bin_file_name}");
+				gDFUMode = 0;
+				return;
+			}
+
+			if (gCallback != null)
+				gCallback("[LIB] SC4 DFU Finished. Reboot SC4 Device.");
+
+			dfu.Close();
+			gBle.CloseDevice();
+			gDFUMode = 0;
+		}
+
+
+		//===========================================================================
+		//--- 6) DFU
+		public async void SC4_DFU(string dfu_ap_dat_file_name, string dfu_ap_bin_file_name)
         {
 
-            string strDFU = "53 80 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 45 E8";
-            SC4_WriteCommand(strDFU);
+			string strDFU = "53 80 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 45 E8";
+			SC4_WriteCommand(strDFU);
 
             gDevName = null;        // change status to disconnected
             gCharNameWrite = null;
@@ -345,13 +423,13 @@ namespace sc4_ble
 
             gDFUMode = 1;            // DFU 
             NRF_ERROR_CODE result;
-            string parameters = "SC4 DFU";
 
             // only allow for one connection to be open at a time
             if (gCallback != null)
                 gCallback("[LIB] SC4 DFU Started");
 
-            result = await dfu.Open(parameters);
+			var dfu_bleAddress = gCurrent_BleAddress + 1;
+			result = await dfu.Open(dfu_bleAddress);
             if (!result.Equals(NRF_ERROR_CODE.NRF_FOUND_DEVICE))
             {
                 if (gCallback != null)
@@ -401,7 +479,8 @@ namespace sc4_ble
             if (gCallback != null)
                 gCallback("[LIB] SC4 DFU Finished. Reboot SC4 Device.");
 
-            gBle.CloseDevice();
+			dfu.Close();
+			gBle.CloseDevice();
             gDFUMode = 0;
         }
 

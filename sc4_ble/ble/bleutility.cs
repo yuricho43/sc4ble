@@ -18,6 +18,8 @@ namespace Ble.Service
     static class Constants
     {
         public const string MFG_VC_UUID = "2d420000-6569-6464-6163-6563696f562d";
+        public const string SC4_NAME_PREFIX = "SC4";
+        public const string SC4_NAME_DFU = "SC4 DFU";
     }
     public enum TaskName : int
     {
@@ -115,9 +117,7 @@ namespace Ble.Service
         UNPAIRE_FAILED,
 
     }
-    /// <summary>
     ///     Represents the display of an attribute - both characteristics and services.
-    /// </summary>
     public class BluetoothLEAttributeDisplay
     {
         public GattCharacteristic characteristic;
@@ -335,10 +335,8 @@ namespace Ble.Service
         }
     }
 
-    /// <summary>
     ///     This enum assists in finding a string representation of a BT SIG assigned value for Service UUIDS
     ///     Reference: https://developer.bluetooth.org/gatt/services/Pages/ServicesHome.aspx
-    /// </summary>
     public enum GattNativeServiceUuid : ushort
     {
         None = 0,
@@ -366,10 +364,8 @@ namespace Ble.Service
         SimpleKeyService = 0xFFE0
     }
 
-    /// <summary>
     ///     This enum is nice for finding a string representation of a BT SIG assigned value for Characteristic UUIDs
     ///     Reference: https://developer.bluetooth.org/gatt/characteristics/Pages/CharacteristicsHome.aspx
-    /// </summary>
     public enum GattNativeCharacteristicUuid : ushort
     {
         None = 0,
@@ -499,10 +495,8 @@ namespace Ble.Service
         FanSpeed = 0x9004,
         FanStatus = 0x1524,
     }
-    /// <summary>
     ///     This enum assists in finding a string representation of a BT SIG assigned value for Descriptor UUIDs
     ///     Reference: https://developer.bluetooth.org/gatt/descriptors/Pages/DescriptorsHomePage.aspx
-    /// </summary>
     public enum GattNativeDescriptorUuid : ushort
     {
         CharacteristicExtendedProperties = 0x2900,
@@ -555,12 +549,6 @@ namespace Ble.Service
 
     public static class Utilities
     {
-        /// <summary>
-        ///     Converts from standard 128bit UUID to the assigned 32bit UUIDs. Makes it easy to compare services
-        ///     that devices expose to the standard list.
-        /// </summary>
-        /// <param name="uuid">UUID to convert to 32 bit</param>
-        /// <returns></returns>
         public static ushort ConvertUuidToShortId(Guid uuid)
         {
             // Get the short Uuid
@@ -569,11 +557,6 @@ namespace Ble.Service
             return shortUuid;
         }
 
-        /// <summary>
-        ///     Converts from a buffer to a properly sized byte array
-        /// </summary>
-        /// <param name="buffer"></param>
-        /// <returns></returns>
         public static byte[] ReadBufferToBytes(IBuffer buffer)
         {
             var dataLength = buffer.Length;
@@ -585,12 +568,6 @@ namespace Ble.Service
             return data;
         }
 
-        /// <summary>
-        /// This function converts IBuffer data to string by specified format
-        /// </summary>
-        /// <param name="buffer"></param>
-        /// <param name="format"></param>
-        /// <returns></returns>
         public static string FormatValue(IBuffer buffer, DataFormat format)
         {
             byte[] data;
@@ -620,12 +597,6 @@ namespace Ble.Service
             }
         }
 
-        /// <summary>
-        /// This function converts IBuffer data to string by specified list of formats
-        /// </summary>
-        /// <param name="buffer"></param>
-        /// <param name="format"></param>
-        /// <returns></returns>
         public static string FormatValueMultipleFormattes(IBuffer buffer, List<DataFormat> formatList)
         {
             byte[] data;
@@ -670,12 +641,6 @@ namespace Ble.Service
             }
             return stringBuffer;
         }
-        /// <summary>
-        /// Format data for writing by specific format
-        /// </summary>
-        /// <param name="data"></param>
-        /// <param name="format"></param>
-        /// <returns></returns>
         public static IBuffer FormatData(string data, DataFormat format)
         {
             try
@@ -688,7 +653,7 @@ namespace Ble.Service
                     using (var dataReader = Windows.Storage.Streams.DataReader.FromBuffer(result_data))
                     {
                         dataReader.UnicodeEncoding = Windows.Storage.Streams.UnicodeEncoding.Utf8;
-                        Console.WriteLine("result: {0}", dataReader.ReadString(result_data.Length) );
+                        //Console.WriteLine("result: {0}", dataReader.ReadString(result_data.Length) );
                     }
                     return result_data;
                 }
@@ -713,13 +678,6 @@ namespace Ble.Service
                 return null;
             }
         }
-
-        /// <summary>
-        /// This function is trying to find device or service or attribute by name or number
-        /// </summary>
-        /// <param name="collection">source collection</param>
-        /// <param name="name">name or number to find</param>
-        /// <returns>ID for device, Name for services or attributes</returns>
         public static string GetIdByNameOrNumber(object collection, string name)
         {
             string result = string.Empty;
